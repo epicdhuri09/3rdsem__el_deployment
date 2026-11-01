@@ -204,21 +204,26 @@ def landcover_percentages(bbox, when=None, max_gap_days=45):
                        name, path))
     if not scenes:
         return None
-    scenes.sort()
+    # Newest first (or nearest to 'when'); skip scenes that do not cover the lake.
     if when is None:
-        chosen = scenes[-1]
+        scenes.sort(reverse=True)
     else:
-        chosen = min(scenes, key=lambda s: abs((s[0] - when).days))
-        if abs((chosen[0] - when).days) > max_gap_days:
-            return None
-    with rasterio.open(chosen[2]) as src:
-        left, bottom, right, top = transform_bounds("EPSG:4326", src.crs, *bbox)
-        window = from_bounds(left, bottom, right, top, src.transform)
-        window = window.intersection(
-            rasterio.windows.Window(0, 0, src.width, src.height))
-        data = src.read(1, window=window)
-    data = data[data < 4]
-    if data.size == 0:
+        scenes = sorted((s for s in scenes if abs((s[0] - when).days) <= max_gap_days),
+                        key=lambda s: abs((s[0] - when).days))
+    for chosen in scenes:
+        with rasterio.open(chosen[2]) as src:
+            left, bottom, right, top = transform_bounds("EPSG:4326", src.crs, *bbox)
+            window = from_bounds(left, bottom, right, top, src.transform)
+            try:
+                window = window.intersection(
+                    rasterio.windows.Window(0, 0, src.width, src.height))
+            except rasterio.errors.WindowError:
+                continue
+            data = src.read(1, window=window)
+        data = data[data < 4]
+        if data.size:
+            break
+    else:
         return None
     share = np.bincount(data.ravel(), minlength=4)[:4] / data.size * 100
     return {
