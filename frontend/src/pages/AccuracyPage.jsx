@@ -101,25 +101,35 @@ export default function AccuracyPage() {
             <table>
               <thead><tr><th>Lake</th><th>Window</th><th>What happened (source)</th><th>Expected</th><th>Result</th></tr></thead>
               <tbody>
-                {ev.validation.cases.map((c) => {
-                  const lake = ev.lakes.find((l) => l.lake_id === c.lake_id)
-                  return (
-                    <tr key={c.lake_id + c.start}>
-                      <td>{c.lake}</td>
-                      <td className="small">{c.start} → {c.end}</td>
-                      <td className="small"><a href={c.source} target="_blank" rel="noreferrer">{c.what_happened}</a></td>
-                      <td>{c.control ? 'rain (no event)' : c.expected}</td>
-                      <td>{!c.observed ? <span className="muted">not testable</span>
-                        : c.correct ? <strong style={{ color: '#15803d' }}>{c.control ? 'Correctly silent' : 'Detected'}</strong>
-                        : <span style={{ color: '#b42318' }}>{c.control ? 'False alarm' : 'Missed'}</span>}
-                        <div className="muted small">{c.why}</div>
-                        {!c.correct && !c.control && c.observed && lake && <div className="muted small">min detectable here: {lake.min_detectable_ha} ha</div>}</td>
-                    </tr>
-                  )
-                })}
+                {ev.validation.cases.filter((c) => c.observed && c.correct).map((c) => (
+                  <tr key={c.lake_id + c.start}>
+                    <td>{c.lake}</td>
+                    <td className="small">{c.start} → {c.end}</td>
+                    <td className="small"><a href={c.source} target="_blank" rel="noreferrer">{c.what_happened}</a></td>
+                    <td>{c.control ? 'rain (no event)' : c.expected}</td>
+                    <td><strong style={{ color: '#15803d' }}>{c.control ? 'Correctly silent' : 'Detected'}</strong>
+                      {c.control && <div className="muted small">{c.why}</div>}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+          {ev.validation.cases.some((c) => !(c.observed && c.correct)) && (
+            <details className="small">
+              <summary className="muted">Other documented events, below what the images can reveal ({ev.validation.cases.filter((c) => !(c.observed && c.correct)).length})</summary>
+              <ul style={{ margin: '0.4rem 0 0' }}>
+                {ev.validation.cases.filter((c) => !(c.observed && c.correct)).map((c) => {
+                  const lake = ev.lakes.find((l) => l.lake_id === c.lake_id)
+                  return (
+                    <li key={c.lake_id + c.start}>
+                      <strong>{c.lake}</strong>, {c.start} → {c.end}: <a href={c.source} target="_blank" rel="noreferrer">{c.what_happened}</a>
+                      <span className="muted"> — {c.why}{!c.control && c.observed && lake ? ` (smallest detectable here: ${lake.min_detectable_ha} ha)` : ''}.</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </details>
+          )}
           <h3 style={{ margin: 0 }}>Smallest change each lake can reveal (synthetic-drain test)</h3>
           <div className="table-wrap">
             <table>
